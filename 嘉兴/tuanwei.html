@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="mapDiv" content="width=device-width; initial-scale=1.0">
+    <meta name="mapDiv"
+          content="height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=0">
+
+
+    <title>旅游路径</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.34/esri/css/esri.css">
+    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap3-dialog/1.35.4/css/bootstrap-dialog.css" rel="stylesheet">
+    <script src="http://cdn.static.runoob.com/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="http://cdn.static.runoob.com/libs/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap3-dialog/1.35.4/js/bootstrap-dialog.min.js"></script>
+    <script src="./arcgis-echarts3-master/dist/main.js"></script>
+    <script src="https://js.arcgis.com/3.34"></script>
+
+</head>
+
+<body>
+
+<div id="mapDiv">
+
+</div>
+<style>
+    .toolDiv {
+        word-break: break-all;
+        word-wrap: break-word
+    }
+</style>
+
+<script>
+    var map; //把map从require中拿出来,全局
+    var height1 = document.documentElement.clientHeight;
+    document.getElementById("mapDiv").style.width = window.screen.width;      //注意这里要打引号
+    document.getElementById("mapDiv").style.height = '890px';
+
+    require([
+        "esri/map",
+        "esri/layers/ArcGISTiledMapServiceLayer",
+        "arcgis-echarts3-master/src/Echarts3Layer.js",
+        "dojo/domReady!"], function (Map, ArcGISTiledMapServiceLayer, Echarts3Layer) {
+        map = new Map("mapDiv", {
+            logo: false,
+            center: [120.7551097869873, 30.758697882796368], // longitude, latitude
+            zoom: 14
+        })
+        var myTiledMapServiceLayer = new ArcGISTiledMapServiceLayer("http://cache1.arcgisonline.cn/arcgis/rest/services/ChinaOnlineCommunity_Mobile/MapServer\n");
+        map.addLayer(myTiledMapServiceLayer)
+
+        map.on('load', function () {
+            //eCharts添加到图层
+            var overlay = new Echarts3Layer(map, echarts);
+            var chartsContainer = overlay.getEchartsContainer();
+            var myChart = overlay.initECharts(chartsContainer);
+
+//            定义各地区经纬度坐标
+            var geoCoordMap = {
+                '杭州东站': [120.212997, 30.29133],
+                '嘉兴南站': [120.799957, 30.69058],
+                '沈钧儒故居': [116.413384, 39.910925],
+                '南湖景区': [120.76508, 30.757469],
+
+                '南湖革命纪念馆': [120.76154708862305, 30.747360218149833],
+                '南湖红船': [120.76079607009888, 30.75495099052966],
+                '烟雨楼': [120.76032400131226, 30.755330592675783],
+                '伍相祠': [120.75397253036499, 30.753855394159345],
+                '月河历史长街': [120.75103282928467, 30.771699745240877]
+            };
+
+            //定义各条路线
+            var BJData = [
+                [{name: '南湖革命纪念馆'}, {name: '南湖红船'}],
+                [{name: '南湖红船'}, {name: '烟雨楼'}],
+                [{name: '烟雨楼'}, {name: '伍相祠'}],
+                [{name: '伍相祠'}, {name: '月河历史长街'}],
+            ];
+
+            //定义传值函数
+            var convertData = function (data) {
+                var res = [];
+                for (var i = 0; i < data.length; i++) {
+                    var dataItem = data[i];
+                    var fromCoord = geoCoordMap[dataItem[0].name];
+                    var toCoord = geoCoordMap[dataItem[1].name];
+                    if (fromCoord && toCoord) {
+                        res.push([{
+                            coord: fromCoord
+                        }, {
+                            coord: toCoord
+                        }]);
+                    }
+                }
+                return res;
+            };
+            //散点点击事件
+            // var scatterClick = function (params){
+            //     var $html = '11';
+            //     var dialog = new BootstrapDialog({//Bootstrap弹框
+            //         title: '详细信息',
+            //         message: $html,//弹框中间的内容
+            //         type : BootstrapDialog.TYPE_DANGER,
+            //         size : BootstrapDialog.SIZE_SMALL,
+            //         buttons: [{
+            //             label: '关闭',
+            //             action: function(newCatalogue){
+            //                         newCatalogue.close();
+            //                     }
+            //         }],
+            //     })
+            //     dialog.open();
+            // }
+
+
+            var color = ['#fb0f55', '#ffa022', '#46bee9'];
+            var series = [];
+            [['北京', BJData]].forEach(function (item, i) {
+                series.push(
+                    {
+                        name: item[0] + ' Top10',
+                        type: 'lines',
+                        zlevel: 2,
+                        effect: {
+                            show: true,
+                            period: 6,
+                            trailLength: 0,
+                            symbol: 'circle',
+                            symbolSize: 10,
+                            color: '#fff',
+                            shadowBlur: 10
+                        },
+                        lineStyle: {
+                            normal: {
+                                color: '#fb0f55',
+                                width: 5,
+                                opacity: 0.8,
+                                curveness: 0.3 //弯曲程度设置0-1逐渐增大
+                            }
+                        },
+                        data: convertData(item[1])
+                    },
+                    {
+                        name: '地点详情',
+                        type: 'effectScatter',
+                        coordinateSystem: 'geo',
+                        zlevel: 2,
+                        rippleEffect: {
+                            brushType: 'stroke'
+                        },
+                        label: {
+                            normal: {
+                                show: true,
+                                position: 'right',
+                                formatter: '{b}',
+                                textStyle: {
+                                    fontWeight: 'bold',
+                                    fontSize: 15
+                                }
+                            }
+                        },
+                        symbolSize: function (v) {
+                            return 20
+                        },
+                        itemStyle: {
+                            normal: {
+                                color: color[i]
+                            }
+                        },
+                        data:
+                            [{
+                                name: '南湖革命纪念馆',
+                                value: [120.76154708862305, 30.747360218149833],
+                                value2: '南湖革命纪念馆位于浙江省嘉兴市南湖路，是为纪念中国共产党第一次<br/>' +
+                                    '全国代表大会在嘉兴南湖闭幕而建造的一座纪念性建筑，1960年，在党中央<br/>' +
+                                    '和浙江省委的直接关怀下，三百多万南湖儿女涌跃捐资320多万元，南湖革命<br/>' +
+                                    '纪念馆成立了。1985年，邓小平题写了南湖革命纪念馆的馆名，现馆为1991<br/>' +
+                                    '年建成的新馆。南湖革命纪念馆是中国百个爱国主义教育基地之一，1997年6<br/>' +
+                                    '月被中共中央宣传部确定为全国爱国主义教育示范基地，成为向广大人民群众<br/>' +
+                                    '特别是青少年进行革命传统教育和爱国主义教育的重要基地。',
+                                picture: 'https://raw.githubusercontent.com/bencyq/http_picture/main/%E5%8D%97%E6%B9%96%E9%9D%A9%E5%91%BD%E7%BA%AA%E5%BF%B5%E9%A6%861.jpg',
+                                video: 'vedio.mp4'
+                            },
+                                {
+                                    name: '南湖红船',
+                                    value: [120.76079607009888, 30.75495099052966],
+                                    value2: '现在，我们来到嘉兴南湖边，瞻仰复建的南湖红船，这艘船对于中国' + '<br/>' +
+                                        '共产党有着特殊的意义，1921 年 7 月，中国共产党第一次全国代表大会' + '<br/>' +
+                                        '在上海召开，但是就在会议进行中，遭到法租界巡捕袭扰，会议被迫中断' + '<br/>' +
+                                        '，代表们立即转移， 1921 年 8 月初，中共一大代表就在这里，完成了大' + '<br/>' +
+                                        '会议程，中国共产党宣告成立。让我们走进这艘红船，去了解它背后那些' + '<br/>' +
+                                        '鲜为人知的故事。',
+                                    picture: 'https://raw.githubusercontent.com/bencyq/http_picture/main/%E7%BA%A2%E8%88%B9.jpg',
+                                    video: 'vedio.mp4'
+                                },
+                                {
+                                    name: '烟雨楼',
+                                    value: [120.76032400131226, 30.755330592675783],
+                                    value2: '不管是本地人还是外地人，说起嘉兴的名胜，众口皆碑的就是南湖湖' + '<br/>' +
+                                        '心岛上的烟雨楼了。1921年，中共一大会议在南湖的一艘游船上进行，由' + '<br/>' +
+                                        '此开始了中国共产党开天辟地的大事，而烟雨楼则见证了这一历史性的巨' + '<br/>' +
+                                        '变。如今，烟雨楼依然保留着民国时期的格局，重檐翘角，回廊台阶，静静' + '<br/>' +
+                                        '地矗立在湖心岛上，是岛上园林里所有名胜古迹的核心，楼前两侧已四百' + '<br/>' +
+                                        '多年的银杏树枝繁叶茂、遮云避日，默默地守护着这座重建近百年的建筑。' + '<br/>' +
+                                        '古树阅尽沧桑，而名楼也永恒常新。',
+                                    picture: 'https://raw.githubusercontent.com/bencyq/http_picture/main/%E7%83%9F%E9%9B%A8%E6%A5%BC.png',
+                                    video: 'vedio.mp4'
+                                },
+                                {
+                                    name: '伍相祠',
+                                    value: [120.75397253036499, 30.753855394159345],
+                                    value2: '伍相祠位于嘉兴市南湖景区的西侧，是纪念距今2500多年前吴国忠臣' + '<br/>' +
+                                        '伍子胥的寺院。伍相祠大殿，殿前有一座青铜大鼎，香火旺盛，门前挂有' + '<br/>' +
+                                        '一块匾额，上题“春秋大意”，意思是：孝君当竭力忠心。伍相祠由壕股' + '<br/>' +
+                                        '塔的前院改建而成，登壕股塔顶之后绕湖步行，远眺湖面，天水一色。每' + '<br/>' +
+                                        '年的农历五月初五，这里将举行祭祀伍子胥的活动，表达了人们对伍子胥' + '<br/>' +
+                                        '不朽功勋的崇敬，抒发了对伍子胥“忠而见谤，信而见疑”的不平和惋惜',
+                                    picture: 'https://raw.githubusercontent.com/bencyq/http_picture/main/%E4%BC%8D%E7%9B%B8%E7%A5%A0.jpg',
+                                    video: 'vedio.mp4'
+                                },
+                                {
+                                    name: '月河历史长街',
+                                    value: [120.75103282928467, 30.771699745240877],
+                                    value2: '今天的最后一站便是月河历史长街了。嘉兴月河是运河的一条支流，因' + '<br/>' +
+                                        '“其水弯曲抱城如月”而得名，明清以来月河一带已形成繁华街市。街区' + '<br/>' +
+                                        '内，传统的民居依水造势，古街深巷迂回曲折、纵横交错；小河、古桥、' + '<br/>' +
+                                        '狭弄、旧民居、廊棚等还原并展现了浓厚的水乡古城风情，众多百年老字' + '<br/>' +
+                                        '号透射出旧时嘉兴“江南府城”的繁华。倒影，摇曳水中；民宅，错落有' + '<br/>' +
+                                        '致；檐角，层叠翘飞；青檐灰瓦，十里长街；静谧安闲，清韵悠悠；好一' + '<br/>' +
+                                        '番江南水乡的韵味。',
+                                    picture: 'https://raw.githubusercontent.com/bencyq/http_picture/main/%E6%9C%88%E6%B2%B3%E5%8E%86%E5%8F%B2%E9%95%BF%E8%A1%971.jpg',
+                                    video: 'vedio.mp4'
+                                }]
+                    }
+                );
+            });
+
+            var option = {
+                tooltip: {
+                    triggerOn: "click",
+                    // position: [20, 20],
+                    formatter: function (params) {
+                        var result = "<img style='width:250px;height:150px;align:center' src='" + params.data.picture + "'/>" + '<br/>' + params.name + '<br/>' + params.data.value2;
+                        //var result = "<video src=" + params.data.video + " controls=\"controls\" width='400px' height='300px'>" + '<br/>' + "<p>你哈</p>" + params.name + '<br/>' + params.data.value2;
+                        console.log(params.data.picture);
+                        return result;
+                    },
+                    // backgroundColor:"#fff",            //标题背景色
+                    // borderColor:"#ccc",                        //边框颜色
+                    // borderWidth:0,                              //边框线宽
+                    padding: 10,                                  //图例内边距，单位px  5  [5, 10]  [5,10,5,10]
+                    // textStyle:mytextStyle,                     //文本样式
+                    extraCssText: 'width:100px;height:60px;'
+                },
+                //设置不同级别数据以不同的显示方式
+                geo: {
+                    map: '',
+                    label: {
+                        emphasis: {
+                            show: false
+                        }
+                    },
+                    roam: false,
+                    aspectScale: 0.75
+                },
+                series: series
+            };
+            // 使用刚指定的配置项和数据显示图表。
+            myChart.setOption(option);
+        })
+    })
+</script>
+</body>
+</html>
